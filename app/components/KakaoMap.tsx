@@ -9,10 +9,12 @@ function coordinatesFor(item: Restaurant) {
 }
 
 type LatLng = { };
-type KakaoMap = { setCenter: (center: LatLng) => void; panTo: (center: LatLng) => void; setLevel: (level: number) => void };
+type Bounds = { extend: (point: LatLng) => void };
+type KakaoMap = { setCenter: (center: LatLng) => void; panTo: (center: LatLng) => void; setLevel: (level: number) => void; setBounds: (bounds: Bounds, padding?: number) => void };
 type Marker = { setMap: (map: KakaoMap | null) => void };
 type KakaoMaps = {
   LatLng: new (lat: number, lng: number) => LatLng;
+  LatLngBounds: new () => Bounds;
   Map: new (container: HTMLElement, options: { center: LatLng; level: number }) => KakaoMap;
   Marker: new (options: { map: KakaoMap; position: LatLng; title?: string }) => Marker;
   InfoWindow: new (options: { content: HTMLElement; removable?: boolean }) => { open: (map: KakaoMap, marker: Marker) => void; close: () => void };
@@ -99,15 +101,22 @@ export default function KakaoMap({ restaurants, selectedId, userLocation = null,
     const point = coordinatesFor(item);
     if (!point) return;
     const { lat, lng } = point;
-    mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
-    mapRef.current.setLevel(3);
+    if (userLocation) {
+      const bounds = new window.kakao.maps.LatLngBounds();
+      bounds.extend(new window.kakao.maps.LatLng(userLocation.latitude, userLocation.longitude));
+      bounds.extend(new window.kakao.maps.LatLng(lat, lng));
+      mapRef.current.setBounds(bounds, 72);
+    } else {
+      mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+      mapRef.current.setLevel(3);
+    }
     const marker = markersRef.current.get(item.id);
     if (marker) {
       const content = document.createElement("div"); content.style.cssText = "padding:9px 11px;font:12px Arial,sans-serif;color:#202521";
       const title = document.createElement("strong"); title.textContent = `${item.emoji} ${item.name}${item.source === "public" ? "" : " · 샘플"}`; content.append(title);
       infoRef.current?.close(); infoRef.current = new window.kakao.maps.InfoWindow({ content, removable: true }); infoRef.current.open(mapRef.current, marker);
     }
-  }, [selectedId, restaurants, mapRevision]);
+  }, [selectedId, restaurants, mapRevision, userLocation]);
 
   useEffect(() => {
     if (!mapRef.current || !window.kakao) return;
@@ -116,9 +125,18 @@ export default function KakaoMap({ restaurants, selectedId, userLocation = null,
     if (!userLocation) return;
     const position = new window.kakao.maps.LatLng(userLocation.latitude, userLocation.longitude);
     userMarkerRef.current = new window.kakao.maps.Marker({ map: mapRef.current, position, title: "현재 내 위치" });
-    mapRef.current.setCenter(position);
-    mapRef.current.setLevel(4);
-  }, [userLocation, mapRevision]);
+    const selectedItem = selectedId ? restaurants.find(item => item.id === selectedId) : null;
+    const selectedPoint = selectedItem ? coordinatesFor(selectedItem) : null;
+    if (selectedPoint) {
+      const bounds = new window.kakao.maps.LatLngBounds();
+      bounds.extend(position);
+      bounds.extend(new window.kakao.maps.LatLng(selectedPoint.lat, selectedPoint.lng));
+      mapRef.current.setBounds(bounds, 72);
+    } else {
+      mapRef.current.setCenter(position);
+      mapRef.current.setLevel(4);
+    }
+  }, [userLocation, mapRevision, selectedId, restaurants]);
 
   return <div className={`relative overflow-hidden rounded-[20px] border border-[#e5e9e2] bg-[#eef2ec] ${compact ? "h-[210px]" : "h-[420px] md:h-[540px]"}`}>
     <div ref={containerRef} className="h-full w-full" aria-label="카카오 지도" />
