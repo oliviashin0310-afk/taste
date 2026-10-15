@@ -148,6 +148,10 @@ export default function Home() {
     }
     return matches.filter(item => item.neighborhood === neighborhood && (dataSource === "public" || item.distance <= radius));
   }, [activeRestaurants, category, currentLocation, currentNearbyResult, dataSource, nearbyMode, neighborhood, query, radius]);
+  const mapRestaurants = useMemo(() => {
+    if (!detail || detail.id !== focusedId || filtered.some(item => item.id === detail.id)) return filtered;
+    return [...filtered, detail];
+  }, [detail, filtered, focusedId]);
   const loadPublicData = async (selectedNeighborhood: string) => {
     setDataLoading(true); setDataMessage(""); setDataSource("public"); setPublicRestaurants([]);
     try {
@@ -166,7 +170,7 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, []);
   const requestLocation = (preserveSelection = false) => {
-    setNotice(""); setLocationMessage(""); setDataSource("public");
+    setNotice(""); setLocationMessage(""); if (!preserveSelection) setDataSource("public");
     if (!navigator.geolocation) {
       setCurrentLocation(null); setLocationStatus("unsupported");
       setLocationMessage("이 브라우저는 위치 기능을 지원하지 않습니다. 지역을 직접 선택해 주세요."); return;
@@ -175,7 +179,8 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(position => {
       setCurrentLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy });
       setLocationStatus("success"); setLocationMessage(""); if (!preserveSelection) setFocusedId(null); setView("map");
-      setNotice(`현재 위치를 표시했어요. 브라우저가 알려준 위치 정확도는 약 ${Math.round(position.coords.accuracy)}m입니다.`);
+      const accuracy = Math.round(position.coords.accuracy);
+      setNotice(accuracy > 1000 ? `위치 오차 범위가 약 ${Math.round(accuracy / 100) / 10}km예요. 기기의 위치 설정을 확인해 주세요.` : `현재 위치를 표시했어요. 브라우저가 알려준 위치 정확도는 약 ${accuracy}m입니다.`);
     }, error => {
       setCurrentLocation(null);
       if (error.code === error.PERMISSION_DENIED) {
@@ -230,7 +235,7 @@ export default function Home() {
         <div className="mb-4 grid grid-cols-5 justify-items-center gap-x-3 gap-y-3 pb-2 lg:grid-cols-10" aria-label="업종 선택">{categoryOptions.map(c => { const selected = category === c; return <button key={c} type="button" onClick={() => setCategory(c)} aria-pressed={selected} className="flex w-full min-w-0 flex-col items-center gap-1.5 text-center text-[#202520]"><span className={`flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-[16px] transition ${selected ? "bg-[#e4ebe4] shadow-[0_3px_10px_rgba(53,107,74,0.10)]" : "bg-[#f0f1ee] hover:bg-[#e8ebe7]"}`}><CategoryIcon category={c} /></span><span className="max-w-full truncate px-0.5 text-[10px] font-medium leading-tight">{c}</span></button>; })}</div>
         <div className="mb-1 flex items-center justify-between"><div className="flex items-baseline gap-2"><h2 className="text-[17px] font-semibold tracking-[-.05em]">{area.split(" ").at(-1)} 음식점</h2><span className="text-[12px] text-[#969d96]">{filtered.length}곳</span></div><div className="flex items-center rounded-full bg-[#eff1ed] p-0.5"><button onClick={() => setView("list")} className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] ${view === "list" ? "bg-white font-semibold text-[#3c6447] shadow-sm" : "text-[#8b928b]"}`}><Icon name="list" size={12}/>목록</button><button onClick={() => setView("map")} className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] ${view === "map" ? "bg-white font-semibold text-[#3c6447] shadow-sm" : "text-[#8b928b]"}`}><Icon name="map" size={12}/>지도</button></div></div>
         <div className="mb-1 flex items-end gap-2 border-b border-[#e8ebe5]">{[0.5, 1, 3].map(km => { const selected = radius === km; return <button key={km} onClick={() => setRadius(km)} className={`relative whitespace-nowrap px-2 pb-2 pt-1 text-[11px] after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:content-[''] ${selected ? "font-bold text-[#416a4b] after:bg-[#416a4b]" : "font-normal text-[#858d85] after:bg-transparent"}`}>{km < 1 ? "500m" : `${km}km`}</button>; })}<span className="ml-auto pb-2 text-[10px] text-[#a1a7a0]">{nearbyMode ? "현재 위치 직선거리" : dataSource === "public" ? "내 주변 찾기로 거리 필터 적용" : "샘플 거리"}</span></div>
-        {view === "list" ? <div>{dataLoading ? <div className="py-16 text-center text-sm text-[#899189]">선택한 동네의 공공데이터를 불러오고 있어요…</div> : filtered.length ? filtered.map(item => <RestaurantCard key={item.sourceId ?? item.id} item={item} nearbyMode={nearbyMode} onClick={() => selectRestaurant(item)}/>) : <div className="py-16 text-center text-sm text-[#899189]">{nearbySearchLoading ? "DB에서 반경 내 음식점을 검색하고 있어요…" : currentNearbyResult?.error ?? (dataSource === "public" && !publicRestaurants?.length ? dataMessage || "선택한 동네의 공공데이터가 없습니다." : "조건에 맞는 음식점이 없어요.")}</div>}</div> : <div className="mt-4"><KakaoMap restaurants={filtered} selectedId={focusedId} userLocation={currentLocation} onSelect={selectRestaurant}/>{!filtered.length&&<p className="py-4 text-center text-sm text-[#899189]">{nearbySearchLoading ? "DB에서 반경 내 음식점을 검색하고 있어요…" : currentNearbyResult?.error ?? (dataSource === "public" && !publicRestaurants?.length ? dataMessage || "선택한 동네의 공공데이터가 없습니다." : "조건에 맞는 음식점이 없어요.")}</p>}</div>}
+        {view === "list" ? <div>{dataLoading ? <div className="py-16 text-center text-sm text-[#899189]">선택한 동네의 공공데이터를 불러오고 있어요…</div> : filtered.length ? filtered.map(item => <RestaurantCard key={item.sourceId ?? item.id} item={item} nearbyMode={nearbyMode} onClick={() => selectRestaurant(item)}/>) : <div className="py-16 text-center text-sm text-[#899189]">{nearbySearchLoading ? "DB에서 반경 내 음식점을 검색하고 있어요…" : currentNearbyResult?.error ?? (dataSource === "public" && !publicRestaurants?.length ? dataMessage || "선택한 동네의 공공데이터가 없습니다." : "조건에 맞는 음식점이 없어요.")}</div>}</div> : <div className="mt-4"><KakaoMap restaurants={mapRestaurants} selectedId={focusedId} userLocation={currentLocation} onSelect={selectRestaurant}/>{!filtered.length&&<p className="py-4 text-center text-sm text-[#899189]">{nearbySearchLoading ? "DB에서 반경 내 음식점을 검색하고 있어요…" : currentNearbyResult?.error ?? (dataSource === "public" && !publicRestaurants?.length ? dataMessage || "선택한 동네의 공공데이터가 없습니다." : "조건에 맞는 음식점이 없어요.")}</p>}</div>}
         <div className="mt-6 rounded-[14px] bg-[#f0f2ed] px-4 py-3 text-[11px] leading-5 text-[#858d85]">ⓘ {dataSource === "public" ? "업체명, 주소, 업종, 좌표는 공공데이터포털 제공값입니다. 평점·리뷰·영업시간은 표시하지 않습니다." : "화면에 표시된 음식점 정보는 모두 샘플입니다. 실제 위치·운영 여부와 무관하며 평점, 리뷰, 영업시간 정보는 제공하지 않습니다."}</div>
       </section>
 
