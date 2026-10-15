@@ -9,12 +9,10 @@ function coordinatesFor(item: Restaurant) {
 }
 
 type LatLng = { };
-type Bounds = { extend: (point: LatLng) => void };
-type KakaoMap = { setCenter: (center: LatLng) => void; panTo: (center: LatLng) => void; setLevel: (level: number) => void; setBounds: (bounds: Bounds, padding?: number) => void };
+type KakaoMap = { setCenter: (center: LatLng) => void; panTo: (center: LatLng) => void; setLevel: (level: number) => void };
 type Marker = { setMap: (map: KakaoMap | null) => void };
 type KakaoMaps = {
   LatLng: new (lat: number, lng: number) => LatLng;
-  LatLngBounds: new () => Bounds;
   Map: new (container: HTMLElement, options: { center: LatLng; level: number }) => KakaoMap;
   Marker: new (options: { map: KakaoMap; position: LatLng; title?: string }) => Marker;
   InfoWindow: new (options: { content: HTMLElement; removable?: boolean }) => { open: (map: KakaoMap, marker: Marker) => void; close: () => void };
@@ -101,15 +99,8 @@ export default function KakaoMap({ restaurants, selectedId, userLocation = null,
     const point = coordinatesFor(item);
     if (!point) return;
     const { lat, lng } = point;
-    if (userLocation) {
-      const bounds = new window.kakao.maps.LatLngBounds();
-      bounds.extend(new window.kakao.maps.LatLng(userLocation.latitude, userLocation.longitude));
-      bounds.extend(new window.kakao.maps.LatLng(lat, lng));
-      mapRef.current.setBounds(bounds, 72);
-    } else {
-      mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
-      mapRef.current.setLevel(3);
-    }
+    mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+    mapRef.current.setLevel(3);
     const marker = markersRef.current.get(item.id);
     if (marker) {
       const content = document.createElement("div"); content.style.cssText = "padding:9px 11px;font:12px Arial,sans-serif;color:#202521";
@@ -125,14 +116,7 @@ export default function KakaoMap({ restaurants, selectedId, userLocation = null,
     if (!userLocation) return;
     const position = new window.kakao.maps.LatLng(userLocation.latitude, userLocation.longitude);
     userMarkerRef.current = new window.kakao.maps.Marker({ map: mapRef.current, position, title: "현재 내 위치" });
-    const selectedItem = selectedId ? restaurants.find(item => item.id === selectedId) : null;
-    const selectedPoint = selectedItem ? coordinatesFor(selectedItem) : null;
-    if (selectedPoint) {
-      const bounds = new window.kakao.maps.LatLngBounds();
-      bounds.extend(position);
-      bounds.extend(new window.kakao.maps.LatLng(selectedPoint.lat, selectedPoint.lng));
-      mapRef.current.setBounds(bounds, 72);
-    } else {
+    if (!selectedId) {
       mapRef.current.setCenter(position);
       mapRef.current.setLevel(4);
     }
@@ -140,7 +124,7 @@ export default function KakaoMap({ restaurants, selectedId, userLocation = null,
 
   return <div className={`relative overflow-hidden rounded-[20px] border border-[#e5e9e2] bg-[#eef2ec] ${compact ? "h-[210px]" : "h-[420px] md:h-[540px]"}`}>
     <div ref={containerRef} className="h-full w-full" aria-label="카카오 지도" />
-    {userLocation && <div className="absolute right-3 top-3 rounded-lg bg-white/95 px-3 py-2 text-[10px] font-medium text-[#356b4a] shadow-sm">내 위치 · 정확도 약 {userLocation.accuracy == null ? "확인 중" : `${Math.round(userLocation.accuracy)}m`} · 저장 안 함</div>}
+    {userLocation && <div className="absolute right-3 top-3 rounded-lg bg-white/95 px-3 py-2 text-[10px] font-medium text-[#356b4a] shadow-sm">{selectedId ? "가게 위치 중심 · 내 위치 마커는 지도 밖에 있을 수 있어요" : `내 위치 · 정확도 약 ${userLocation.accuracy == null ? "확인 중" : `${Math.round(userLocation.accuracy)}m`} · 저장 안 함`}</div>}
     <div className="absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-2 text-[10px] text-[#697269] shadow-sm">{restaurants[0]?.source === "public" ? "공공데이터 좌표 · 좌표 없는 업소는 마커 생략" : "샘플 음식점 · 마커 위치는 임의 좌표입니다"}</div>
     {error && <div className="absolute inset-0 flex items-center justify-center bg-[#f2f4ef]/95 p-5"><div className="max-w-[310px] text-center"><div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#8b7358]">!</div><p className="mt-3 text-[13px] font-semibold text-[#424a42]">지도를 표시할 수 없습니다</p><p className="mt-2 text-[11px] leading-5 text-[#788078]">{error}</p><p className="mt-2 text-[10px] text-[#9ba19b]">카카오 Developers에 개발 주소를 등록했는지도 확인해 주세요.</p></div></div>}
   </div>;
