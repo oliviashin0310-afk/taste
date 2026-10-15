@@ -21,9 +21,15 @@ type RestaurantRow = {
 
 type NearbyRestaurantRow = RestaurantRow & { distance_meters: number };
 
-function fromRow(row: RestaurantRow, index: number, distanceMeters?: number): Restaurant {
+function stableRestaurantId(source: string, sourceId: string) {
+  let hash = 2166136261;
+  for (const character of `${source}:${sourceId}`) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  return (hash >>> 0) + 1_000_000_000;
+}
+
+function fromRow(row: RestaurantRow, distanceMeters?: number): Restaurant {
   return {
-    id: index + 1,
+    id: stableRestaurantId(row.source, row.source_id),
     source: "public",
     sourceId: row.source_id,
     sourceName: row.source,
@@ -61,7 +67,7 @@ export async function searchNearbyStoredRestaurants(options: {
     p_limit: options.limit,
   });
   if (error) throw new Error(`Supabase 주변 음식점 검색 실패: ${error.message}`);
-  return ((data ?? []) as NearbyRestaurantRow[]).map((row, index) => fromRow(row, index, row.distance_meters));
+  return ((data ?? []) as NearbyRestaurantRow[]).map(row => fromRow(row, row.distance_meters));
 }
 
 export async function listStoredRestaurants(neighborhood: string): Promise<Restaurant[]> {
@@ -73,7 +79,7 @@ export async function listStoredRestaurants(neighborhood: string): Promise<Resta
     .order("name")
     .limit(1000);
   if (error) throw new Error(`Supabase 음식점 목록 조회 실패: ${error.message}`);
-  return ((data ?? []) as RestaurantRow[]).map((row, index) => fromRow(row, index));
+  return ((data ?? []) as RestaurantRow[]).map(row => fromRow(row));
 }
 
 export async function upsertStoredRestaurants(restaurants: Restaurant[]): Promise<void> {
