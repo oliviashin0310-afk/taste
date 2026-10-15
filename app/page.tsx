@@ -86,7 +86,7 @@ export default function Home() {
   const [area, setArea] = useState("마포구 연남동");
   const [areaOpen, setAreaOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationMessage, setLocationMessage] = useState("");
   const [dataSource, setDataSource] = useState<"sample" | "public">("public");
@@ -173,9 +173,9 @@ export default function Home() {
     }
     setLocationStatus("loading");
     navigator.geolocation.getCurrentPosition(position => {
-      setCurrentLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      setCurrentLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy });
       setLocationStatus("success"); setLocationMessage(""); setFocusedId(null); setView("map");
-      setNotice("현재 위치를 지도에 표시하고, 선택한 반경 안의 음식점을 가까운 순서로 보여드려요.");
+      setNotice(`현재 위치를 표시했어요. 브라우저가 알려준 위치 정확도는 약 ${Math.round(position.coords.accuracy)}m입니다.`);
     }, error => {
       setCurrentLocation(null);
       if (error.code === error.PERMISSION_DENIED) {
@@ -185,7 +185,7 @@ export default function Home() {
       } else {
         setLocationStatus("unavailable"); setLocationMessage("현재 위치를 확인할 수 없습니다. 기기 위치 설정을 확인하거나 지역을 직접 선택해 주세요.");
       }
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+    }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   };
   const selectRestaurant = (item: Restaurant) => { setFocusedId(item.id); setDetail(item); };
 
