@@ -83,7 +83,7 @@ export default function Home() {
   const [view, setView] = useState<"list" | "map">("list");
   const [detail, setDetail] = useState<Restaurant | null>(null);
   const [focusedId, setFocusedId] = useState<number | null>(null);
-  const [area, setArea] = useState("마포구 연남동");
+  const [area, setArea] = useState("내 주변");
   const [areaOpen, setAreaOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
@@ -165,10 +165,6 @@ export default function Home() {
       setDataMessage("음식점 정보를 불러오지 못했어요. 잠시 후 새로고침해 주세요.");
     } finally { setDataLoading(false); }
   };
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void loadPublicData("연남동"); }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
   const requestLocation = (preserveSelection = false) => {
     setNotice(""); setLocationMessage(""); if (!preserveSelection) setDataSource("public");
     if (!navigator.geolocation) {
@@ -192,6 +188,10 @@ export default function Home() {
       }
     }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   };
+  useEffect(() => {
+    // Start with the device's location instead of silently loading Yeonnam as a fixed default.
+    requestLocation();
+  }, []);
   const selectRestaurant = (item: Restaurant) => { setFocusedId(item.id); setDetail(item); setView("map"); if (!currentLocation) requestLocation(true); };
 
   return <main className="min-h-screen bg-[#fafbf8]">
@@ -229,13 +229,13 @@ export default function Home() {
         </div>
         {locationStatus === "loading" && <p className="mb-4 rounded-[12px] bg-[#edf4ed] px-4 py-3 text-[12px] text-[#456b4c]" role="status">브라우저에서 현재 위치를 확인하고 있어요…</p>}
         {locationMessage && <div className="mb-4 flex items-center justify-between gap-3 rounded-[12px] bg-[#fff5ec] px-4 py-3 text-[12px] leading-5 text-[#795a42]" role="alert"><span>{locationMessage}</span><button onClick={() => setAreaOpen(true)} className="shrink-0 rounded-full bg-white px-3 py-1.5 font-medium text-[#5e704f]">지역 선택</button></div>}
-        {nearbyMode && <p className="mb-4 rounded-[12px] bg-[#edf4ed] px-4 py-3 text-[12px] leading-5 text-[#456b4c]">{dataSource === "public" ? "PostGIS DB에서 직선거리순 검색 중 · 현재 위치는 저장하지 않습니다." : "직선거리 기준으로 주변 샘플을 정렬합니다 · 현재 위치는 저장하지 않습니다."}</p>}
-        {nearbySearchLoading && <p className="mb-3 text-[12px] text-[#7b847b]" role="status">DB에서 반경 내 음식점을 검색하고 있어요…</p>}
+        {nearbyMode && <p className="mb-4 rounded-[12px] bg-[#edf4ed] px-4 py-3 text-[12px] leading-5 text-[#456b4c]">{dataSource === "public" ? "현재 위치 주변 음식점을 찾는 중 · 내 위치는 저장하지 않습니다." : "직선거리 기준으로 주변 샘플을 정렬합니다 · 현재 위치는 저장하지 않습니다."}</p>}
+        {nearbySearchLoading && <p className="mb-3 text-[12px] text-[#7b847b]" role="status">현재 위치 주변 음식점을 검색하고 있어요…</p>}
         {currentNearbyResult?.error && <p className="mb-3 text-[12px] text-[#a24d3f]" role="alert">{currentNearbyResult.error}</p>}
         <div className="mb-4 grid grid-cols-5 justify-items-center gap-x-3 gap-y-3 pb-2 lg:grid-cols-10" aria-label="업종 선택">{categoryOptions.map(c => { const selected = category === c; return <button key={c} type="button" onClick={() => setCategory(c)} aria-pressed={selected} className="flex w-full min-w-0 flex-col items-center gap-1.5 text-center text-[#202520]"><span className={`flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-[16px] transition ${selected ? "bg-[#e4ebe4] shadow-[0_3px_10px_rgba(53,107,74,0.10)]" : "bg-[#f0f1ee] hover:bg-[#e8ebe7]"}`}><CategoryIcon category={c} /></span><span className="max-w-full truncate px-0.5 text-[10px] font-medium leading-tight">{c}</span></button>; })}</div>
-        <div className="mb-1 flex items-center justify-between"><div className="flex items-baseline gap-2"><h2 className="text-[17px] font-semibold tracking-[-.05em]">{area.split(" ").at(-1)} 음식점</h2><span className="text-[12px] text-[#969d96]">{filtered.length}곳</span></div><div className="flex items-center rounded-full bg-[#eff1ed] p-0.5"><button onClick={() => setView("list")} className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] ${view === "list" ? "bg-white font-semibold text-[#3c6447] shadow-sm" : "text-[#8b928b]"}`}><Icon name="list" size={12}/>목록</button><button onClick={() => setView("map")} className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] ${view === "map" ? "bg-white font-semibold text-[#3c6447] shadow-sm" : "text-[#8b928b]"}`}><Icon name="map" size={12}/>지도</button></div></div>
+        <div className="mb-1 flex items-center justify-between"><div className="flex items-baseline gap-2"><h2 className="text-[17px] font-semibold tracking-[-.05em]">{nearbyMode ? "내 주변 음식점" : `${area.split(" ").at(-1)} 음식점`}</h2><span className="text-[12px] text-[#969d96]">{filtered.length}곳</span></div><div className="flex items-center rounded-full bg-[#eff1ed] p-0.5"><button onClick={() => setView("list")} className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] ${view === "list" ? "bg-white font-semibold text-[#3c6447] shadow-sm" : "text-[#8b928b]"}`}><Icon name="list" size={12}/>목록</button><button onClick={() => setView("map")} className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] ${view === "map" ? "bg-white font-semibold text-[#3c6447] shadow-sm" : "text-[#8b928b]"}`}><Icon name="map" size={12}/>지도</button></div></div>
         <div className="mb-1 flex items-end gap-2 border-b border-[#e8ebe5]">{[0.5, 1, 3].map(km => { const selected = radius === km; return <button key={km} onClick={() => setRadius(km)} className={`relative whitespace-nowrap px-2 pb-2 pt-1 text-[11px] after:absolute after:inset-x-0 after:bottom-[-1px] after:h-[2px] after:content-[''] ${selected ? "font-bold text-[#416a4b] after:bg-[#416a4b]" : "font-normal text-[#858d85] after:bg-transparent"}`}>{km < 1 ? "500m" : `${km}km`}</button>; })}<span className="ml-auto pb-2 text-[10px] text-[#a1a7a0]">{nearbyMode ? "현재 위치 직선거리" : dataSource === "public" ? "내 주변 찾기로 거리 필터 적용" : "샘플 거리"}</span></div>
-        {view === "list" ? <div>{dataLoading ? <div className="py-16 text-center text-sm text-[#899189]">선택한 동네의 공공데이터를 불러오고 있어요…</div> : filtered.length ? filtered.map(item => <RestaurantCard key={item.sourceId ?? item.id} item={item} nearbyMode={nearbyMode} onClick={() => selectRestaurant(item)}/>) : <div className="py-16 text-center text-sm text-[#899189]">{nearbySearchLoading ? "DB에서 반경 내 음식점을 검색하고 있어요…" : currentNearbyResult?.error ?? (dataSource === "public" && !publicRestaurants?.length ? dataMessage || "선택한 동네의 공공데이터가 없습니다." : "조건에 맞는 음식점이 없어요.")}</div>}</div> : <div className="mt-4"><KakaoMap restaurants={mapRestaurants} selectedId={focusedId} userLocation={currentLocation} onSelect={selectRestaurant}/>{!filtered.length&&<p className="py-4 text-center text-sm text-[#899189]">{nearbySearchLoading ? "DB에서 반경 내 음식점을 검색하고 있어요…" : currentNearbyResult?.error ?? (dataSource === "public" && !publicRestaurants?.length ? dataMessage || "선택한 동네의 공공데이터가 없습니다." : "조건에 맞는 음식점이 없어요.")}</p>}</div>}
+        {view === "list" ? <div>{dataLoading ? <div className="py-16 text-center text-sm text-[#899189]">선택한 동네의 공공데이터를 불러오고 있어요…</div> : filtered.length ? filtered.map(item => <RestaurantCard key={item.sourceId ?? item.id} item={item} nearbyMode={nearbyMode} onClick={() => selectRestaurant(item)}/>) : <div className="py-16 text-center text-sm text-[#899189]">{nearbySearchLoading ? "현재 위치 주변 음식점을 검색하고 있어요…" : currentNearbyResult?.error ?? (dataSource === "public" && !publicRestaurants?.length ? dataMessage || "선택한 동네의 공공데이터가 없습니다." : "조건에 맞는 음식점이 없어요.")}</div>}</div> : <div className="mt-4"><KakaoMap restaurants={mapRestaurants} selectedId={focusedId} userLocation={currentLocation} onSelect={selectRestaurant}/>{!filtered.length&&<p className="py-4 text-center text-sm text-[#899189]">{nearbySearchLoading ? "현재 위치 주변 음식점을 검색하고 있어요…" : currentNearbyResult?.error ?? (dataSource === "public" && !publicRestaurants?.length ? dataMessage || "선택한 동네의 공공데이터가 없습니다." : "조건에 맞는 음식점이 없어요.")}</p>}</div>}
         <div className="mt-6 rounded-[14px] bg-[#f0f2ed] px-4 py-3 text-[11px] leading-5 text-[#858d85]">ⓘ {dataSource === "public" ? "업체명, 주소, 업종, 좌표는 공공데이터포털 제공값입니다. 평점·리뷰·영업시간은 표시하지 않습니다." : "화면에 표시된 음식점 정보는 모두 샘플입니다. 실제 위치·운영 여부와 무관하며 평점, 리뷰, 영업시간 정보는 제공하지 않습니다."}</div>
       </section>
 

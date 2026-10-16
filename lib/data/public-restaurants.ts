@@ -100,3 +100,63 @@ export async function fetchPublicRestaurantData(neighborhood: string) {
 
   return { businesses };
 }
+
+
+
+export async function fetchNearbyPublicRestaurantData(options: {
+  latitude: number;
+  longitude: number;
+  radiusMeters: 500 | 1000 | 3000;
+}) {
+  const serviceKey = process.env.DATA_PORTAL_SERVICE_KEY;
+  if (!serviceKey) throw new Error("DATA_PORTAL_SERVICE_KEY가 서버 환경에 설정되지 않았습니다.");
+
+  const url = new URL("https://apis.data.go.kr/B553077/api/open/sdsc2/storeListInRadius");
+  for (const [name, value] of Object.entries({
+    ServiceKey: serviceKey,
+    cx: String(options.longitude),
+    cy: String(options.latitude),
+    radius: String(options.radiusMeters),
+    indsLclsCd: "I2",
+    pageNo: "1",
+    numOfRows: "100",
+    type: "json",
+  })) url.searchParams.set(name, value);
+
+  const response = await requestJson<SmallBusinessResponse>(url, "상가정보 API");
+  if (response.header?.resultCode !== "00") {
+    throw new Error(`주변 음식점 API 오류: ${response.header?.resultMsg ?? "응답 코드를 확인할 수 없습니다."}`);
+  }
+
+  const businesses = asItems(response.body?.items)
+    .slice(0, 100)
+    .map((item, index): Restaurant | null => {
+      if (!item.bizesId || !item.bizesNm) return null;
+      const latitudeValue = item.lat == null ? "" : String(item.lat).trim();
+      const longitudeValue = item.lon == null ? "" : String(item.lon).trim();
+      const latitude = latitudeValue ? Number(latitudeValue) : Number.NaN;
+      const longitude = longitudeValue ? Number(longitudeValue) : Number.NaN;
+      const category = item.indsMclsNm || item.indsSclsNm || "음식점";
+      return {
+        id: index + 1,
+        name: item.bizesNm,
+        category,
+        categoryLabel: item.indsSclsNm || category,
+        neighborhood: item.ldongNm || item.adongNm || "주변",
+        address: item.rdnmAdr ?? item.lnoAdr ?? "",
+        description: "",
+        color: palette[index % palette.length],
+        emoji: "🍽️",
+        distance: 0,
+        source: "public",
+        sourceId: item.bizesId,
+        sourceName: "소상공인시장진흥공단 상가(상권)정보 API",
+        ...(Number.isFinite(latitude) && Number.isFinite(longitude)
+          ? { latitude, longitude }
+          : {}),
+      };
+    })
+    .filter((item): item is Restaurant => item !== null);
+
+  return { businesses };
+}
