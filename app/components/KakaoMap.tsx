@@ -9,12 +9,17 @@ function coordinatesFor(item: Restaurant) {
 }
 
 type LatLng = { };
+type Size = { };
+type Point = { };
 type KakaoMap = { setCenter: (center: LatLng) => void; panTo: (center: LatLng) => void; setLevel: (level: number) => void };
 type Marker = { setMap: (map: KakaoMap | null) => void };
 type KakaoMaps = {
   LatLng: new (lat: number, lng: number) => LatLng;
+  Size: new (width: number, height: number) => Size;
+  Point: new (x: number, y: number) => Point;
+  MarkerImage: new (src: string, size: Size, options?: { offset?: Point }) => unknown;
   Map: new (container: HTMLElement, options: { center: LatLng; level: number }) => KakaoMap;
-  Marker: new (options: { map: KakaoMap; position: LatLng; title?: string }) => Marker;
+  Marker: new (options: { map: KakaoMap; position: LatLng; title?: string; image?: unknown }) => Marker;
   InfoWindow: new (options: { content: HTMLElement; removable?: boolean }) => { open: (map: KakaoMap, marker: Marker) => void; close: () => void };
   event: { addListener: (target: Marker | KakaoMap, type: string, callback: () => void) => void };
   load: (callback: () => void) => void;
@@ -115,7 +120,14 @@ export default function KakaoMap({ restaurants, selectedId, userLocation = null,
     userMarkerRef.current = null;
     if (!userLocation) return;
     const position = new window.kakao.maps.LatLng(userLocation.latitude, userLocation.longitude);
-    userMarkerRef.current = new window.kakao.maps.Marker({ map: mapRef.current, position, title: "현재 내 위치" });
+    const maps = window.kakao.maps;
+    const userIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="#477754" fill-opacity=".2"/><circle cx="22" cy="22" r="12.5" fill="#356b4a" stroke="#fff" stroke-width="3"/><circle cx="22" cy="19" r="3" fill="#fff"/><path d="M16.5 29c.5-3.2 2.4-5.1 5.5-5.1s5 1.9 5.5 5.1" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+    const userImage = new maps.MarkerImage(
+      `data:image/svg+xml;charset=utf-8,${encodeURIComponent(userIcon)}`,
+      new maps.Size(44, 44),
+      { offset: new maps.Point(22, 22) },
+    );
+    userMarkerRef.current = new maps.Marker({ map: mapRef.current, position, title: "내 위치", image: userImage });
     if (!selectedId) {
       mapRef.current.setCenter(position);
       mapRef.current.setLevel(4);

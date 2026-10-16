@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { Restaurant } from '../lib/types'
 
 type LatLng = {}
+type Size = {}
+type Point = {}
 type MapInstance = {
   setCenter(position: LatLng): void
   panTo(position: LatLng): void
@@ -10,8 +12,11 @@ type MapInstance = {
 type Marker = { setMap(map: MapInstance | null): void }
 type KakaoMaps = {
   LatLng: new (lat: number, lng: number) => LatLng
+  Size: new (width: number, height: number) => Size
+  Point: new (x: number, y: number) => Point
+  MarkerImage: new (src: string, size: Size, options?: { offset?: Point }) => unknown
   Map: new (container: HTMLElement, options: { center: LatLng; level: number }) => MapInstance
-  Marker: new (options: { map: MapInstance; position: LatLng; title?: string }) => Marker
+  Marker: new (options: { map: MapInstance; position: LatLng; title?: string; image?: unknown }) => Marker
   event: { addListener(target: Marker | MapInstance, name: string, callback: () => void): void }
   load(callback: () => void): void
 }
@@ -109,7 +114,13 @@ export default function KakaoMap({ restaurants, location, selected, onSelect }: 
     if (location) {
       const maps = window.kakao.maps
       const point = new maps.LatLng(location.latitude, location.longitude)
-      userMarker.current = new maps.Marker({ map: map.current, position: point, title: '현재 내 위치' })
+      const userIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="#477754" fill-opacity=".2"/><circle cx="22" cy="22" r="12.5" fill="#356b4a" stroke="#fff" stroke-width="3"/><circle cx="22" cy="19" r="3" fill="#fff"/><path d="M16.5 29c.5-3.2 2.4-5.1 5.5-5.1s5 1.9 5.5 5.1" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>`
+      const userImage = new maps.MarkerImage(
+        `data:image/svg+xml;charset=utf-8,${encodeURIComponent(userIcon)}`,
+        new maps.Size(44, 44),
+        { offset: new maps.Point(22, 22) },
+      )
+      userMarker.current = new maps.Marker({ map: map.current, position: point, title: '내 위치', image: userImage })
       if (!selected) {
         map.current.setCenter(point)
         map.current.setLevel(5)
